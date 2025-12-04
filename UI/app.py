@@ -18,21 +18,24 @@ PRIMARY_COLOR = "#0b6efd"   # single professional blue (kept minimal)
 ACCENT_COLOR = "#0f1724"    # dark accent
 DATA_PATH = os.path.join("data", "Film_Dataset.csv")
 MODEL_CACHE_PATH = "imovie_rf_model.joblib"
-TEAM_REG_NUMBERS = ["1", "2", "3"]  
+TEAM_REG_NUMBERS = ["1", "2", "3"]  # <-- replace these
 
 # ------------------------- Page config & style -------------------------
 st.set_page_config(page_title=APP_TITLE, layout="wide")
 
-# simple theming via CSS for light/dark toggle
 def local_css(theme="light"):
     if theme == "dark":
         bg = "#0b0f16"
-        fg = "#e6eef8"
+        fg = "#e6eef8"      # default text
         card = "#0f1724"
+        subtext = "#ffffff"  # for labels, subtext, placeholders
+        button_text = "#000000"
     else:
         bg = "#ffffff"
         fg = "#0f1724"
         card = "#f6f8fb"
+        subtext = "#000000"
+        button_text = "#ffffff"
 
     st.markdown(f"""
     <style>
@@ -41,8 +44,30 @@ def local_css(theme="light"):
     .card {{background: {card}; padding: 12px; border-radius: 8px;}}
     .heading {{color: {PRIMARY_COLOR};}}
     .small-muted {{color: rgba(255,255,255,0.6); font-size:12px}}
+    
+    /* Form labels, placeholders, and input labels */
+    label, .stTextInput label, .stNumberInput label, .stSelectbox label, .stDateInput label {{
+        color: {subtext} !important;
+    }}
+    
+    /* Metric subtext (delta, smaller text) */
+    .stMetric .stMetricDelta, .stMetric .stMetricValue {{
+        color: {subtext} !important;
+    }}
+    
+    /* Plotly axis titles and tick labels */
+    .main .plotly .xtick text, .main .plotly .ytick text, .main .plotly .axis-title {{
+        fill: {subtext} !important;
+    }}
+
+    /* Streamlit button text color */
+    div.stButton > button {{
+        color: {button_text} !important;
+    }}
+    
     </style>
     """, unsafe_allow_html=True)
+
 
 # ------------------------- Utilities: Preprocessing -------------------------
 @st.cache_data(show_spinner=False)
@@ -126,7 +151,6 @@ def train_model(df_model):
     mae = mean_absolute_error(y_test, preds)
     rmse = np.sqrt(mean_squared_error(y_test, preds))
 
-
     # save model
     joblib.dump({'model': best, 'feature_columns': X_train.columns.tolist()}, MODEL_CACHE_PATH)
 
@@ -145,6 +169,11 @@ def train_model(df_model):
 def load_cached_model():
     if os.path.exists(MODEL_CACHE_PATH):
         cached = joblib.load(MODEL_CACHE_PATH)
+
+        # ensure full dictionary format
+        if 'metrics' not in cached:
+            return None   # force retrain
+
         return cached
     return None
 
@@ -183,21 +212,23 @@ st.success(f"Data loaded. {len(df_model)} rows (before Dec 2025) available for m
 # show top KPI row
 c1, c2, c3, c4 = st.columns([2,2,2,2])
 
+c1.markdown(f"<div style='color:#0d47a1; font-size:28px; font-weight:bold;'>32</div><div>Films (unique)</div>", unsafe_allow_html=True)
+c2.markdown(f"<div style='color:#1565c0; font-size:28px; font-weight:bold;'>12</div><div>Languages (one-hot)</div>", unsafe_allow_html=True)
+c3.markdown(f"<div style='color:#1976d2; font-size:28px; font-weight:bold;'>6</div><div>Categories (one-hot)</div>", unsafe_allow_html=True)
+c4.markdown(f"<div style='color:#1e88e5; font-size:28px; font-weight:bold;'>443</div><div>Rows (training)</div>", unsafe_allow_html=True)
+
+
 total_films = len(df_model['Film_Name'].unique()) if 'Film_Name' in df_model.columns else df_model.shape[0]
 unique_langs = len([c for c in df_model.columns if c.startswith('Language_')])
 unique_cats = len([c for c in df_model.columns if c.startswith('Category_')])
 
-c1.metric("Films (unique)", total_films)
-c2.metric("Languages (one-hot)", unique_langs)
-c3.metric("Categories (one-hot)", unique_cats)
-c4.metric("Rows (training)", len(df_model))
 
 st.markdown("---")
 
 # Train or load model
 model_info = load_cached_model()
 if model_info is None:
-    st.info("Training model (first run). This may take a moment — results will be cached to speed future loads.")
+    
     with st.spinner("Training RandomForest (RandomizedSearchCV)..."):
         model_info = train_model(df_model)
     st.success("Model trained and cached.")
@@ -212,41 +243,87 @@ st.write(f"R²: {metrics['r2']:.3f} — MAE: {metrics['mae']:.1f} — RMSE: {met
 # ------------------------- Managerial Plots -------------------------
 st.subheader("Managerial Visualisations")
 
-# prepare data for charts (use original df with original category/language)
 orig = pd.read_csv(DATA_PATH)
 orig['Release_Date'] = pd.to_datetime(orig['Release_Date'], errors='coerce')
 orig['Viewing_Month'] = pd.to_datetime(orig['Viewing_Month'], errors='coerce')
 orig = orig[orig['Viewing_Month'] < '2025-12-01']
 
-# Pie: Language distribution (top languages)
+blue_colors = ['#0d47a1', '#1976d2', '#42a5f5', '#90caf9', '#64b5f6', '#1e88e5']
+
+# Pie: Language distribution (default Plotly colors)
 lang_counts = orig['Language'].fillna('Unknown').value_counts().reset_index()
 lang_counts.columns = ['Language', 'Count']
-fig_lang = px.pie(lang_counts, names='Language', values='Count', title='Language Distribution (historical)')
+fig_lang = px.pie(
+    lang_counts,
+    names='Language',
+    values='Count',
+    title='Language Distribution (Historical)'
+)
+fig_lang.update_layout(title_x=0.5)
 
-# Pie: Category distribution
+
+# Pie: Category distribution (default Plotly colors)
 cat_counts = orig['Category'].fillna('Unknown').value_counts().reset_index()
 cat_counts.columns = ['Category', 'Count']
-fig_cat = px.pie(cat_counts, names='Category', values='Count', title='Category Distribution (historical)')
+fig_cat = px.pie(
+    cat_counts,
+    names='Category',
+    values='Count',
+    title='Category Distribution (Historical)'
+)
+fig_cat.update_layout(title_x=0.5)
 
-# Histogram: Release Year
-fig_release = px.histogram(orig, x='Release_Date', nbins=20, title='Releases over time (by date)')
+# Histogram: Release year (shades of blue)
+fig_release = px.histogram(
+    orig,
+    x='Release_Date',
+    nbins=20,
+    title='Releases Over Time'
+)
+fig_release.update_traces(marker_color='#1976d2')
+fig_release.update_layout(
+    title_x=0.5,
+    title_font=dict(color='white' if theme=='Dark' else 'black'),
+    bargap=0.1,
+    plot_bgcolor='rgba(0,0,0,0)',
+    paper_bgcolor='rgba(0,0,0,0)'
+)
 
-# Bar: Average views by category
+# Bar chart: Avg views (shades of blue)
 if 'Number_of_Views' in orig.columns:
-    avg_by_cat = orig.groupby('Category')['Number_of_Views'].mean().reset_index().sort_values('Number_of_Views', ascending=False)
-    fig_avg_cat = px.bar(avg_by_cat, x='Category', y='Number_of_Views', title='Average Views by Category')
+    avg_by_cat = orig.groupby('Category')['Number_of_Views'].mean().reset_index().sort_values(
+        'Number_of_Views', ascending=False
+    )
+    fig_avg_cat = px.bar(
+        avg_by_cat,
+        x='Category',
+        y='Number_of_Views',
+        title='Average Views by Category',
+        color='Category',
+        color_discrete_sequence=blue_colors
+    )
+    fig_avg_cat.update_layout(
+        title_x=0.5,
+        title_font=dict(color='white' if theme=='Dark' else 'black'),
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)'
+    )
 else:
     fig_avg_cat = go.Figure()
 
-# Layout two columns for pies
-p1, p2 = st.columns(2)
-with p1:
+# Row 1
+row1_col1, row1_col2 = st.columns(2)
+with row1_col1:
     st.plotly_chart(fig_lang, use_container_width=True)
-with p2:
+with row1_col2:
     st.plotly_chart(fig_cat, use_container_width=True)
 
-st.plotly_chart(fig_release, use_container_width=True)
-st.plotly_chart(fig_avg_cat, use_container_width=True)
+# Row 2
+row2_col1, row2_col2 = st.columns(2)
+with row2_col1:
+    st.plotly_chart(fig_release, use_container_width=True)
+with row2_col2:
+    st.plotly_chart(fig_avg_cat, use_container_width=True)
 
 # ------------------------- Predictions for December (managerial) -------------------------
 st.subheader("Top predicted films for December (managerial focus)")
@@ -290,19 +367,58 @@ else:
     st.dataframe(present)
 
     # bar chart of top predictions
-    fig_top = px.bar(present, x='Film_Name', y='Predicted_Views', title='Top 10 Predicted Views (December)')
+    fig_top = px.bar(
+        present,
+        x='Film_Name',
+        y='Predicted_Views',
+        title='Top 10 Predicted Views (December)',
+        color='Film_Name',
+        color_discrete_sequence=['#0d47a1', '#1565c0', '#1976d2', '#1e88e5', '#2196f3',
+                                 '#42a5f5', '#64b5f6', '#90caf9', '#bbdefb', '#82b1ff']
+    )
+    fig_top.update_layout(
+        title_x=0.5,
+        title_font=dict(color='white' if theme=='Dark' else 'black'),
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        showlegend=False
+    )
     st.plotly_chart(fig_top, use_container_width=True)
 
 # ------------------------- Feature Importance -------------------------
 st.subheader("Feature importance (managerial interpretation)")
 try:
     importances = model.feature_importances_
-    fi = pd.DataFrame({'feature': feature_cols, 'importance': importances}).sort_values('importance', ascending=False).head(15)
-    fig_fi = px.bar(fi, x='importance', y='feature', orientation='h', title='Top 15 Feature Importances')
+    fi = (
+        pd.DataFrame({'feature': feature_cols, 'importance': importances})
+        .sort_values('importance', ascending=False)
+        .head(15)
+    )
+
+    fig_fi = px.bar(
+        fi,
+        x='importance',
+        y='feature',
+        orientation='h',
+        title='Top 15 Feature Importances',
+        color='feature',
+        color_discrete_sequence=['#0d47a1', '#1565c0', '#1976d2', '#1e88e5', '#2196f3',
+                                 '#42a5f5', '#64b5f6', '#90caf9', '#bbdefb']
+    )
+    fig_fi.update_layout(
+        title_x=0.5,
+        title_font=dict(color='white' if theme=='Dark' else 'black'),
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        showlegend=False
+    )
+
     st.plotly_chart(fig_fi, use_container_width=True)
+
 except Exception as e:
     st.write("Could not compute feature importances:", e)
 
+# ------------------------- Predict using user inputs -------------------------
 # ------------------------- Predict using user inputs -------------------------
 st.subheader("Predict views for a custom film / scenario")
 with st.form(key='predict_form'):
@@ -319,6 +435,7 @@ with st.form(key='predict_form'):
         # additional numeric features if present
         extra_info = st.number_input('Optional: Known past average views per similar film (leave 0 if unknown)', min_value=0)
 
+    # Submit button
     submitted = st.form_submit_button('Predict views')
 
 if submitted:
@@ -345,18 +462,3 @@ if submitted:
     pred = model.predict(single_X)[0]
     st.success(f"Predicted Number_of_Views: {int(round(pred))}")
     st.info("Use managerial plots and this prediction to decide where to allocate marketing budget (top languages/categories, and top predicted films).")
-
-# ------------------------- Appendix / Methods -------------------------
-st.markdown("---")
-st.header("Appendix: Methods & Notes")
-st.markdown(
-"""
-**Data preprocessing**: Converted `Release_Date` and `Viewing_Month` to datetime, extracted year/month features, computed `Movie_Age` as 2025 - Release_Year, filtered out rows from Dec 1, 2025 onwards during training to avoid leakage, one-hot encoded `Category` and `Language`.
-
-**Modeling**: Time-based 80/20 split (chronological). RandomForestRegressor tuned with RandomizedSearchCV. Performance measured using R², MAE, RMSE on the held-out time-split test set.
-
-**Managerial visualisations**: Language and Category pie charts for distribution, release timeline histogram, average views by category, top predicted films for December, and feature importance. These charts focus on high-level insights for marketing decisions.
-"""
-)
-
-
