@@ -26,10 +26,11 @@ st.set_page_config(page_title=APP_TITLE, layout="wide")
 def local_css(theme="light"):
     if theme == "dark":
         bg = "#0b0f16"
-        fg = "#e6eef8"      # default text
+        fg = "#e6eef8"
         card = "#0f1724"
-        subtext = "#ffffff"  # for labels, subtext, placeholders
-        button_text = "#000000"
+        subtext = "#ffffff"
+        button_text = "#000000" 
+          # <-- black text for buttons
     else:
         bg = "#ffffff"
         fg = "#0f1724"
@@ -39,32 +40,32 @@ def local_css(theme="light"):
 
     st.markdown(f"""
     <style>
+    /* general app styling */
     .reportview-container {{background: {bg}; color: {fg};}}
     .stApp {{background: {bg}; color: {fg};}}
     .card {{background: {card}; padding: 12px; border-radius: 8px;}}
     .heading {{color: {PRIMARY_COLOR};}}
     .small-muted {{color: rgba(255,255,255,0.6); font-size:12px}}
-    
+
     /* Form labels, placeholders, and input labels */
     label, .stTextInput label, .stNumberInput label, .stSelectbox label, .stDateInput label {{
         color: {subtext} !important;
     }}
-    
-    /* Metric subtext (delta, smaller text) */
+
+    /* Metric subtext */
     .stMetric .stMetricDelta, .stMetric .stMetricValue {{
         color: {subtext} !important;
     }}
-    
+
     /* Plotly axis titles and tick labels */
     .main .plotly .xtick text, .main .plotly .ytick text, .main .plotly .axis-title {{
         fill: {subtext} !important;
     }}
 
-    /* Streamlit button text color */
-    div.stButton > button {{
+    /* Streamlit button text color (including form submit buttons) */
+    div.stButton > button, form.stForm div.stButton > button {{
         color: {button_text} !important;
     }}
-    
     </style>
     """, unsafe_allow_html=True)
 
@@ -207,7 +208,7 @@ st.write("Managerial summary: Use the charts below to guide targeted December 20
 with st.spinner("Loading & preprocessing data..."):
     df_model, dec_future = load_and_preprocess(DATA_PATH)
 
-st.success(f"Data loaded. {len(df_model)} rows (before Dec 2025) available for modeling.")
+
 
 # show top KPI row
 c1, c2, c3, c4 = st.columns([2,2,2,2])
@@ -462,3 +463,18 @@ if submitted:
     pred = model.predict(single_X)[0]
     st.success(f"Predicted Number_of_Views: {int(round(pred))}")
     st.info("Use managerial plots and this prediction to decide where to allocate marketing budget (top languages/categories, and top predicted films).")
+
+
+    # ------------------------- Appendix / Methods -------------------------
+st.markdown("---")
+st.header("Appendix: Methods & Notes")
+st.markdown(
+"""
+**Data preprocessing**: Converted `Release_Date` and `Viewing_Month` to datetime, extracted year/month features, computed `Movie_Age` as 2025 - Release_Year, filtered out rows from Dec 1, 2025 onwards during training to avoid leakage, one-hot encoded `Category` and `Language`.
+
+**Modeling**: Time-based 80/20 split (chronological). `RandomForestRegressor` tuned with `RandomizedSearchCV`. Performance measured using R², MAE, RMSE on the held-out time-split test set.
+
+**Managerial visualisations**: Language and Category pie charts for distribution, release timeline histogram, average views by category, top predicted films for December, and feature importance. These charts focus on high-level insights for marketing decisions.
+"""
+)
+
