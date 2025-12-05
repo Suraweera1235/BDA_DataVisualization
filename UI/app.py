@@ -246,10 +246,10 @@ highest_rated_movie = views_2025.loc[views_2025['Viewer_Rate'].idxmax(), 'Film_N
 # show KPI row
 c1, c2, c3, c4 = st.columns([2,2,2,2])
 
-c1.markdown(f"<div style='color:#0d47a1; font-size:28px; font-weight:bold;'>{total_views_2025:,}</div><div>Total Views in 2025</div>", unsafe_allow_html=True)
-c2.markdown(f"<div style='color:#1565c0; font-size:28px; font-weight:bold;'>{top_genre}</div><div>Top Genre</div>", unsafe_allow_html=True)
-c3.markdown(f"<div style='color:#1976d2; font-size:28px; font-weight:bold;'>{most_viewed_movie}</div><div>Most-viewed Movie</div>", unsafe_allow_html=True)
-c4.markdown(f"<div style='color:#1e88e5; font-size:28px; font-weight:bold;'>{highest_rated_movie}</div><div>Highest-rated Movie</div>", unsafe_allow_html=True)
+c1.markdown(f"<div style='color:#0d47a1; font-size:28px; font-weight:bold;'>{total_views_2025:,}</div><div>Total Views in 2025 so far</div>", unsafe_allow_html=True)
+c2.markdown(f"<div style='color:#1565c0; font-size:28px; font-weight:bold;'>{top_genre}</div><div>Top Genre in 2025 so far</div>", unsafe_allow_html=True)
+c3.markdown(f"<div style='color:#1976d2; font-size:28px; font-weight:bold;'>{most_viewed_movie}</div><div>Most-viewed Movie in 2025 so far</div>", unsafe_allow_html=True)
+c4.markdown(f"<div style='color:#1e88e5; font-size:28px; font-weight:bold;'>{highest_rated_movie}</div><div>Highest-rated Movie in 2025 so far</div>", unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -356,11 +356,29 @@ with row2_col2:
 
 
 
-st.subheader("Monthly Viewing Trend")
+##---------------Monthly Views Line Chart-------------------##
 
 monthly = df_model.groupby('Viewing_Month')["Number_of_Views"].sum().reset_index()
-fig = px.line(monthly, x="Viewing_Month", y="Number_of_Views", markers=True)
+
+fig = px.line(
+    monthly,
+    x="Viewing_Month",
+    y="Number_of_Views",
+    markers=True,
+    title="Total Predicted Views per Month"
+)
+
+# Optional: adjust layout
+fig.update_layout(
+    xaxis_title="Month",
+    yaxis_title="Number of Views",
+    title_x=0.5,  # center the title
+    plot_bgcolor='rgba(0,0,0,0)',
+    paper_bgcolor='rgba(0,0,0,0)'
+)
+
 st.plotly_chart(fig)
+
 
 
 # st.subheader("Rating vs Views Scatter Plot")
@@ -373,6 +391,139 @@ st.plotly_chart(fig)
 # fig = px.box(df_model, x="Release_Year", y="Number_of_Views")
 # st.plotly_chart(fig)
 
+#--------------------Top Movie, Language, and Category of Each Year------------------------
+
+# Initialize empty dataframe for top metrics per year
+top_metrics = []
+
+years = sorted([y for y in df_model['Viewing_Year'].dropna().unique() if y != 2025])
+
+
+for year in years:
+    df_year = df_model[df_model['Viewing_Year'] == year]
+
+    # Top movie
+    top_movie = df_year.loc[df_year['Number_of_Views'].idxmax()]
+
+    # Top category
+    top_category = df_year.groupby('Category_original')['Number_of_Views'].sum().idxmax()
+
+    # Top language
+    top_language = df_year.groupby('Language_original')['Number_of_Views'].sum().idxmax()
+
+    
+    top_metrics.append({
+        'Year': year,
+        'Metric': 'Top Movie',
+        'Value': top_movie['Film_Name'],
+        'Category': top_movie['Category_original'],
+        'Language': top_movie['Language_original']
+    })
+
+    top_metrics.append({
+        'Year': year,
+        'Metric': 'Top Category',
+        'Value': top_category
+    })
+    top_metrics.append({
+        'Year': year,
+        'Metric': 'Top Language',
+        'Value': top_language
+    })
+
+# Convert to dataframe
+top_metrics_df = pd.DataFrame(top_metrics)
+
+# For grouped bar chart, we need numeric y. We'll assign Predicted Views to height
+# Get views for each top metric
+def get_views(row):
+    if row['Metric'] == 'Top Movie':
+        # filter by year, film name, category, and language
+        film_row = df_model[
+            (df_model['Viewing_Year'] == row['Year']) &
+            (df_model['Film_Name'] == row['Value']) &
+            (df_model['Category_original'] == row['Category']) &
+            (df_model['Language_original'] == row['Language'])
+        ]
+        return film_row['Number_of_Views'].sum()
+    elif row['Metric'] == 'Top Category':
+        return df_model[df_model['Viewing_Year'] == row['Year']].groupby('Category_original')['Number_of_Views'].sum()[row['Value']]
+    elif row['Metric'] == 'Top Language':
+        return df_model[df_model['Viewing_Year'] == row['Year']].groupby('Language_original')['Number_of_Views'].sum()[row['Value']]
+
+top_metrics_df['Views'] = top_metrics_df.apply(get_views, axis=1)
+
+# Plot grouped bar chart
+fig_grouped = px.bar(
+    top_metrics_df,
+    x='Year',
+    y='Views',
+    color='Metric',
+    barmode='group',
+    text='Value',
+    hover_data={'Value': True, 'Views': True, 'Metric': True, 'Year': True},
+    title='Top Movie, Language, and Category per Year'
+)
+
+fig_grouped.update_traces(textposition='outside')
+fig_grouped.update_layout(
+    xaxis_title="Year",
+    yaxis_title="Predicted Views",
+    title_x=0.5,
+    plot_bgcolor='rgba(0,0,0,0)',
+    paper_bgcolor='rgba(0,0,0,0)'
+)
+
+st.plotly_chart(fig_grouped, use_container_width=True)
+
+# ------------------------- Top December Movie per Year (Bar Chart) -------------------------
+
+
+# Filter only December rows
+dec_df = df_model[df_model['Viewing_Month'].dt.month == 12].copy()
+
+
+if dec_df.empty:
+    st.warning("No December data available.")
+else:
+
+    # Get top movie per year
+    top_december_per_year = (
+        dec_df.loc[dec_df.groupby('Viewing_Year')['Number_of_Views'].idxmax()]
+        .sort_values('Viewing_Year')
+        [['Viewing_Year', 'Film_Name', 'Number_of_Views','Category_original','Language_original']]
+        .reset_index(drop=True)
+    )
+
+
+    # Bar chart
+    fig_december_bar = px.bar(
+        top_december_per_year,
+        x='Viewing_Year',
+        y='Number_of_Views',
+        text='Film_Name',
+        title="Top December Movie Views by Year",
+        hover_data={'Film_Name': True, 'Number_of_Views': True, 'Viewing_Year': True,'Category_original': True,
+            'Language_original': True,},
+        color='Viewing_Year'   # Just to give slight variation
+    )
+
+    # Move the movie name above bars
+    fig_december_bar.update_traces(textposition='outside',showlegend=False)
+
+    # Layout adjustments
+    fig_december_bar.update_layout(
+        xaxis_title="Year",
+        yaxis_title="Number of Views",
+        title_x=0.5,
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        showlegend=False
+    )
+
+    st.plotly_chart(fig_december_bar, use_container_width=True)
+
+    
     
 
 # ------------------------- Predictions for December (managerial) -------------------------
