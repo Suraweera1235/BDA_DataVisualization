@@ -189,17 +189,31 @@ def predict_single(model_dict, input_df):
     return model.predict(X)
 
 # ------------------------- App Layout -------------------------
-# Sidebar: theme, info, registration numbers
-with st.sidebar:
-    st.title("IMovie — Dashboard")
-    theme = st.radio("Theme", options=["Light", "Dark"], index=1)
-    local_css('dark' if theme == 'Dark' else 'light')
+col1, col2 = st.columns([8, 2])
 
-   
+with col1:
+    st.markdown(f"<h1 class='heading'>{APP_TITLE}</h1>", unsafe_allow_html=True)
+    st.write("Managerial summary: Use the charts below to guide targeted December 2025 marketing spend.")
 
-# Header
-st.markdown(f"<h1 class='heading'>{APP_TITLE}</h1>", unsafe_allow_html=True)
-st.write("Managerial summary: Use the charts below to guide targeted December 2025 marketing spend — top predicted films, language & category breakdowns, and feature importance.")
+with col2:
+    theme = st.toggle("Dark Mode", value=True)
+
+# Dynamic toggle label color (WORKS)
+st.markdown(
+    f"""
+    <style>
+    [data-testid="stWidgetLabel"] * {{
+        color: {"white" if theme else "black"} !important;
+    }}
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# Apply theme CSS
+local_css('dark' if theme else 'light')
+
+
 
 # Load and preprocess data
 with st.spinner("Loading & preprocessing data..."):
