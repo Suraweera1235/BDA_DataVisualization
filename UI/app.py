@@ -274,6 +274,40 @@ fig_cat = px.pie(
 )
 fig_cat.update_layout(title_x=0.5)
 
+# Plot 1: Monthly Views Trend
+monthly_views = orig.groupby(orig['Viewing_Month'].dt.to_period('M'))['Number_of_Views'].sum().reset_index()
+monthly_views['Viewing_Month'] = monthly_views['Viewing_Month'].astype(str)
+
+fig_monthly = px.line(
+    monthly_views,
+    x='Viewing_Month',
+    y='Number_of_Views',
+    title='Monthly Viewership Trend',
+    markers=True
+)
+fig_monthly.update_traces(line_color='#1976d2')
+fig_monthly.update_layout(title_x=0.5)
+
+
+# Plot 2: Views by Genre
+genre_views = orig.groupby('Category')['Number_of_Views'].sum().reset_index()
+fig_genre = px.bar(
+    genre_views,
+    x='Category',
+    y='Number_of_Views',
+    title='Total Views by Genre',
+    color='Category',
+    color_discrete_sequence=blue_colors
+)
+fig_genre.update_layout(title_x=0.5, xaxis_tickangle=45)
+
+# Display: Two columns
+colA, colB = st.columns(2)
+with colA:
+    st.plotly_chart(fig_monthly, use_container_width=True)
+with colB:
+    st.plotly_chart(fig_genre, use_container_width=True)
+
 # Histogram: Release year (shades of blue)
 fig_release = px.histogram(
     orig,
