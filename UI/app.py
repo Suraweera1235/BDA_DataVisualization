@@ -1,6 +1,9 @@
 ﻿import streamlit as st
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
@@ -192,13 +195,7 @@ with st.sidebar:
     theme = st.radio("Theme", options=["Light", "Dark"], index=1)
     local_css('dark' if theme == 'Dark' else 'light')
 
-    st.markdown("---")
-    st.subheader("Team Registration Numbers")
-    for reg in TEAM_REG_NUMBERS:
-        st.write(f"• {reg}")
-    st.markdown("---")
-
-    st.markdown("**Instructions**:\n- Dataset file: `data/Film_Dataset.csv`\n- App runs preprocessing automatically.\n- Use the 'Predict' panel to enter a custom scenario.")
+   
 
 # Header
 st.markdown(f"<h1 class='heading'>{APP_TITLE}</h1>", unsafe_allow_html=True)
@@ -210,21 +207,38 @@ with st.spinner("Loading & preprocessing data..."):
 
 
 
-# show top KPI row
+# # show top KPI row
+# c1, c2, c3, c4 = st.columns([2,2,2,2])
+
+# c1.markdown(f"<div style='color:#0d47a1; font-size:28px; font-weight:bold;'>32</div><div>Films (unique)</div>", unsafe_allow_html=True)
+# c2.markdown(f"<div style='color:#1565c0; font-size:28px; font-weight:bold;'>12</div><div>Languages (one-hot)</div>", unsafe_allow_html=True)
+# c3.markdown(f"<div style='color:#1976d2; font-size:28px; font-weight:bold;'>6</div><div>Categories (one-hot)</div>", unsafe_allow_html=True)
+# c4.markdown(f"<div style='color:#1e88e5; font-size:28px; font-weight:bold;'>443</div><div>Rows (training)</div>", unsafe_allow_html=True)
+
+
+# total_films = len(df_model['Film_Name'].unique()) if 'Film_Name' in df_model.columns else df_model.shape[0]
+# unique_langs = len([c for c in df_model.columns if c.startswith('Language_')])
+# unique_cats = len([c for c in df_model.columns if c.startswith('Category_')])
+
+
+# st.markdown("---")
+
+# calculate KPIs
+views_2025 = df_model[df_model['Viewing_Month'].dt.year == 2025]
+total_views_2025 = views_2025['Number_of_Views'].sum()
+top_genre = views_2025.groupby('Category_original')['Number_of_Views'].sum().idxmax()
+most_viewed_movie = views_2025.loc[views_2025['Number_of_Views'].idxmax(), 'Film_Name']
+highest_rated_movie = views_2025.loc[views_2025['Viewer_Rate'].idxmax(), 'Film_Name'] if 'Viewer_Rate' in views_2025.columns else "N/A"
+# show KPI row
 c1, c2, c3, c4 = st.columns([2,2,2,2])
 
-c1.markdown(f"<div style='color:#0d47a1; font-size:28px; font-weight:bold;'>32</div><div>Films (unique)</div>", unsafe_allow_html=True)
-c2.markdown(f"<div style='color:#1565c0; font-size:28px; font-weight:bold;'>12</div><div>Languages (one-hot)</div>", unsafe_allow_html=True)
-c3.markdown(f"<div style='color:#1976d2; font-size:28px; font-weight:bold;'>6</div><div>Categories (one-hot)</div>", unsafe_allow_html=True)
-c4.markdown(f"<div style='color:#1e88e5; font-size:28px; font-weight:bold;'>443</div><div>Rows (training)</div>", unsafe_allow_html=True)
-
-
-total_films = len(df_model['Film_Name'].unique()) if 'Film_Name' in df_model.columns else df_model.shape[0]
-unique_langs = len([c for c in df_model.columns if c.startswith('Language_')])
-unique_cats = len([c for c in df_model.columns if c.startswith('Category_')])
-
+c1.markdown(f"<div style='color:#0d47a1; font-size:28px; font-weight:bold;'>{total_views_2025:,}</div><div>Total Views in 2025</div>", unsafe_allow_html=True)
+c2.markdown(f"<div style='color:#1565c0; font-size:28px; font-weight:bold;'>{top_genre}</div><div>Top Genre</div>", unsafe_allow_html=True)
+c3.markdown(f"<div style='color:#1976d2; font-size:28px; font-weight:bold;'>{most_viewed_movie}</div><div>Most-viewed Movie</div>", unsafe_allow_html=True)
+c4.markdown(f"<div style='color:#1e88e5; font-size:28px; font-weight:bold;'>{highest_rated_movie}</div><div>Highest-rated Movie</div>", unsafe_allow_html=True)
 
 st.markdown("---")
+
 
 # Train or load model
 model_info = load_cached_model()
@@ -232,14 +246,14 @@ if model_info is None:
     
     with st.spinner("Training RandomForest (RandomizedSearchCV)..."):
         model_info = train_model(df_model)
-    st.success("Model trained and cached.")
+    #st.success("Model trained and cached.")
 else:
     st.info("Loaded cached model.")
 
 # Show model metrics
-metrics = model_info['metrics']
-st.subheader("Model performance (time-split test set)")
-st.write(f"R²: {metrics['r2']:.3f} — MAE: {metrics['mae']:.1f} — RMSE: {metrics['rmse']:.1f}")
+# metrics = model_info['metrics']
+# st.subheader("Model performance (time-split test set)")
+# st.write(f"R²: {metrics['r2']:.3f} — MAE: {metrics['mae']:.1f} — RMSE: {metrics['rmse']:.1f}")
 
 # ------------------------- Managerial Plots -------------------------
 st.subheader("Managerial Visualisations")
@@ -273,40 +287,6 @@ fig_cat = px.pie(
     title='Category Distribution (Historical)'
 )
 fig_cat.update_layout(title_x=0.5)
-
-# Plot 1: Monthly Views Trend
-monthly_views = orig.groupby(orig['Viewing_Month'].dt.to_period('M'))['Number_of_Views'].sum().reset_index()
-monthly_views['Viewing_Month'] = monthly_views['Viewing_Month'].astype(str)
-
-fig_monthly = px.line(
-    monthly_views,
-    x='Viewing_Month',
-    y='Number_of_Views',
-    title='Monthly Viewership Trend',
-    markers=True
-)
-fig_monthly.update_traces(line_color='#1976d2')
-fig_monthly.update_layout(title_x=0.5)
-
-
-# Plot 2: Views by Genre
-genre_views = orig.groupby('Category')['Number_of_Views'].sum().reset_index()
-fig_genre = px.bar(
-    genre_views,
-    x='Category',
-    y='Number_of_Views',
-    title='Total Views by Genre',
-    color='Category',
-    color_discrete_sequence=blue_colors
-)
-fig_genre.update_layout(title_x=0.5, xaxis_tickangle=45)
-
-# Display: Two columns
-colA, colB = st.columns(2)
-with colA:
-    st.plotly_chart(fig_monthly, use_container_width=True)
-with colB:
-    st.plotly_chart(fig_genre, use_container_width=True)
 
 # Histogram: Release year (shades of blue)
 fig_release = px.histogram(
@@ -360,6 +340,27 @@ with row2_col1:
 with row2_col2:
     st.plotly_chart(fig_avg_cat, use_container_width=True)
 
+
+
+st.subheader("Monthly Viewing Trend")
+
+monthly = df_model.groupby('Viewing_Month')["Number_of_Views"].sum().reset_index()
+fig = px.line(monthly, x="Viewing_Month", y="Number_of_Views", markers=True)
+st.plotly_chart(fig)
+
+
+# st.subheader("Rating vs Views Scatter Plot")
+
+# fig = px.scatter(df_model, x="Viewer_Rate", y="Number_of_Views", color="Category_original", size="Number_of_Views")
+# st.plotly_chart(fig)
+
+# st.subheader("New Releases Impact")
+
+# fig = px.box(df_model, x="Release_Year", y="Number_of_Views")
+# st.plotly_chart(fig)
+
+    
+
 # ------------------------- Predictions for December (managerial) -------------------------
 st.subheader("Top predicted films for December (managerial focus)")
 
@@ -398,19 +399,43 @@ else:
     present = top_dec[display_cols].copy()
     present['Predicted_Views'] = present['Predicted_Views'].round(0).astype(int)
 
+    # ---- RENAME COLUMNS ----
+    present = present.rename(columns={
+        'Language_original': 'Language',
+        'Category_original': 'Category'
+    })
+
+    present['Release_Date'] = present['Release_Date'].dt.date
+
+    # reset index
+    present = present.reset_index(drop=True)
+
+    # shift index to start from 1
+    present.index = present.index + 1
+
     st.write("Top 10 films (predicted views) for December — use these as targets for promotions:")
     st.dataframe(present)
+    
 
     # bar chart of top predictions
+    present['Film_Language'] = present['Film_Name'] + " (" + present['Language'] + ")"
     fig_top = px.bar(
         present,
-        x='Film_Name',
+        x='Film_Language',
         y='Predicted_Views',
         title='Top 10 Predicted Views (December)',
-        color='Film_Name',
+        color='Film_Language',
         color_discrete_sequence=['#0d47a1', '#1565c0', '#1976d2', '#1e88e5', '#2196f3',
                                  '#42a5f5', '#64b5f6', '#90caf9', '#bbdefb', '#82b1ff']
     )
+
+    y_min = present['Predicted_Views'].min() * 0.95
+    y_max = present['Predicted_Views'].max() * 1.05
+    fig_top.update_yaxes(range=[y_min, y_max])
+
+    # show values on top of bars
+    fig_top.update_traces(text=present['Predicted_Views'], textposition='outside')
+
     fig_top.update_layout(
         title_x=0.5,
         title_font=dict(color='white' if theme=='Dark' else 'black'),
@@ -421,82 +446,82 @@ else:
     st.plotly_chart(fig_top, use_container_width=True)
 
 # ------------------------- Feature Importance -------------------------
-st.subheader("Feature importance (managerial interpretation)")
-try:
-    importances = model.feature_importances_
-    fi = (
-        pd.DataFrame({'feature': feature_cols, 'importance': importances})
-        .sort_values('importance', ascending=False)
-        .head(15)
-    )
+# st.subheader("Feature importance (managerial interpretation)")
+# try:
+#     importances = model.feature_importances_
+#     fi = (
+#         pd.DataFrame({'feature': feature_cols, 'importance': importances})
+#         .sort_values('importance', ascending=False)
+#         .head(15)
+#     )
 
-    fig_fi = px.bar(
-        fi,
-        x='importance',
-        y='feature',
-        orientation='h',
-        title='Top 15 Feature Importances',
-        color='feature',
-        color_discrete_sequence=['#0d47a1', '#1565c0', '#1976d2', '#1e88e5', '#2196f3',
-                                 '#42a5f5', '#64b5f6', '#90caf9', '#bbdefb']
-    )
-    fig_fi.update_layout(
-        title_x=0.5,
-        title_font=dict(color='white' if theme=='Dark' else 'black'),
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)',
-        showlegend=False
-    )
+#     fig_fi = px.bar(
+#         fi,
+#         x='importance',
+#         y='feature',
+#         orientation='h',
+#         title='Top 15 Feature Importances',
+#         color='feature',
+#         color_discrete_sequence=['#0d47a1', '#1565c0', '#1976d2', '#1e88e5', '#2196f3',
+#                                  '#42a5f5', '#64b5f6', '#90caf9', '#bbdefb']
+#     )
+#     fig_fi.update_layout(
+#         title_x=0.5,
+#         title_font=dict(color='white' if theme=='Dark' else 'black'),
+#         plot_bgcolor='rgba(0,0,0,0)',
+#         paper_bgcolor='rgba(0,0,0,0)',
+#         showlegend=False
+#     )
 
-    st.plotly_chart(fig_fi, use_container_width=True)
+#     st.plotly_chart(fig_fi, use_container_width=True)
 
-except Exception as e:
-    st.write("Could not compute feature importances:", e)
+# except Exception as e:
+#     st.write("Could not compute feature importances:", e)
 
 # ------------------------- Predict using user inputs -------------------------
 # ------------------------- Predict using user inputs -------------------------
-st.subheader("Predict views for a custom film / scenario")
-with st.form(key='predict_form'):
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        film_name = st.text_input('Film name', value='My Test Film')
-        release_date = st.date_input('Release date', value=datetime(2023,1,1))
-        language = st.selectbox('Language', options=sorted(orig['Language'].dropna().unique()))
-    with col2:
-        category = st.selectbox('Category', options=sorted(orig['Category'].dropna().unique()))
-        viewing_month = st.date_input('Viewing month (choose any date within the month)', value=datetime(2025,12,1))
-        movie_age = 2025 - release_date.year
-    with col3:
-        # additional numeric features if present
-        extra_info = st.number_input('Optional: Known past average views per similar film (leave 0 if unknown)', min_value=0)
+# st.subheader("Predict views for a custom film / scenario")
+# with st.form(key='predict_form'):
+#     col1, col2, col3 = st.columns(3)
+#     with col1:
+#         film_name = st.text_input('Film name', value='My Test Film')
+#         release_date = st.date_input('Release date', value=datetime(2023,1,1))
+#         language = st.selectbox('Language', options=sorted(orig['Language'].dropna().unique()))
+#     with col2:
+#         category = st.selectbox('Category', options=sorted(orig['Category'].dropna().unique()))
+#         viewing_month = st.date_input('Viewing month (choose any date within the month)', value=datetime(2025,12,1))
+#         movie_age = 2025 - release_date.year
+#     with col3:
+#         # additional numeric features if present
+#         extra_info = st.number_input('Optional: Known past average views per similar film (leave 0 if unknown)', min_value=0)
 
-    # Submit button
-    submitted = st.form_submit_button('Predict views')
+#     # Submit button
+#     submitted = st.form_submit_button('Predict views')
 
-if submitted:
-    # build a single-row dataframe aligned with feature columns
-    row = {
-        'Film_Name': film_name,
-        'Release_Date': pd.to_datetime(release_date),
-        'Viewing_Month': pd.to_datetime(viewing_month),
-        'Release_Year': release_date.year,
-        'Release_Month': release_date.month,
-        'Viewing_Year': pd.to_datetime(viewing_month).year,
-        'Movie_Age': movie_age,
-        'Month_Number': pd.to_datetime(viewing_month).month,
-        'Language': language,
-        'Category': category
-    }
-    # create a one-row DataFrame and dummify
-    single = pd.DataFrame([row])
-    single_model = pd.get_dummies(single, columns=['Category', 'Language'], drop_first=True)
+# if submitted:
+#     # build a single-row dataframe aligned with feature columns
+#     row = {
+#         'Film_Name': film_name,
+#         'Release_Date': pd.to_datetime(release_date),
+#         'Viewing_Month': pd.to_datetime(viewing_month),
+#         'Release_Year': release_date.year,
+#         'Release_Month': release_date.month,
+#         'Viewing_Year': pd.to_datetime(viewing_month).year,
+#         'Movie_Age': movie_age,
+#         'Month_Number': pd.to_datetime(viewing_month).month,
+#         'Language': language,
+#         'Category': category
+#     }
+#     # create a one-row DataFrame and dummify
+#     single = pd.DataFrame([row])
+#     single_model = pd.get_dummies(single, columns=['Category', 'Language'], drop_first=True)
 
-    # align with feature columns
-    single_X = single_model.reindex(columns=feature_cols, fill_value=0)
+#     # align with feature columns
+#     single_X = single_model.reindex(columns=feature_cols, fill_value=0)
 
-    pred = model.predict(single_X)[0]
-    st.success(f"Predicted Number_of_Views: {int(round(pred))}")
-    st.info("Use managerial plots and this prediction to decide where to allocate marketing budget (top languages/categories, and top predicted films).")
+#     pred = model.predict(single_X)[0]
+#     st.success(f"Predicted Number_of_Views: {int(round(pred))}")
+#     st.info("Use managerial plots and this prediction to decide where to allocate marketing budget (top languages/categories, and top predicted films).")
 
 
     # ------------------------- Appendix / Methods -------------------------
