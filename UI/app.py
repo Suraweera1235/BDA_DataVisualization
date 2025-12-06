@@ -195,25 +195,6 @@ with col1:
     st.markdown(f"<h1 class='heading'>{APP_TITLE}</h1>", unsafe_allow_html=True)
     st.write("Managerial summary: Use the charts below to guide targeted December 2025 marketing spend.")
 
-with col2:
-    theme = st.toggle("Dark Mode", value=True)
-
-# Dynamic toggle label color (WORKS)
-st.markdown(
-    f"""
-    <style>
-    [data-testid="stWidgetLabel"] * {{
-        color: {"white" if theme else "black"} !important;
-    }}
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-# Apply theme CSS
-local_css('dark' if theme else 'light')
-
-
 
 # Load and preprocess data
 with st.spinner("Loading & preprocessing data..."):
@@ -312,7 +293,7 @@ fig_release = px.histogram(
 fig_release.update_traces(marker_color='#1976d2')
 fig_release.update_layout(
     title_x=0.5,
-    title_font=dict(color='white' if theme=='Dark' else 'black'),
+    title_font=dict(color='black'),
     bargap=0.1,
     plot_bgcolor='rgba(0,0,0,0)',
     paper_bgcolor='rgba(0,0,0,0)'
@@ -333,7 +314,7 @@ if 'Number_of_Views' in orig.columns:
     )
     fig_avg_cat.update_layout(
         title_x=0.5,
-        title_font=dict(color='white' if theme=='Dark' else 'black'),
+        title_font=dict(color='black'),
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)'
     )
@@ -603,7 +584,7 @@ else:
 
     fig_top.update_layout(
         title_x=0.5,
-        title_font=dict(color='white' if theme=='Dark' else 'black'),
+        title_font=dict(color='black'),
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
         showlegend=False
@@ -694,11 +675,13 @@ st.markdown("---")
 st.header("Appendix: Methods & Notes")
 st.markdown(
 """
-**Data preprocessing**: Converted `Release_Date` and `Viewing_Month` to datetime, extracted year/month features, computed `Movie_Age` as 2025 - Release_Year, filtered out rows from Dec 1, 2025 onwards during training to avoid leakage, one-hot encoded `Category` and `Language`.
 
-**Modeling**: Time-based 80/20 split (chronological). `RandomForestRegressor` tuned with `RandomizedSearchCV`. Performance measured using R², MAE, RMSE on the held-out time-split test set.
+**Data preprocessing**: Converted `Release_Date` and `Viewing_Month` to datetime, created features `Release_Year`, `Release_Month`, `Viewing_Year`, `Movie_Age`, and `Month_Number`. Filtered out December 2025 onward for training to avoid leakage. One-hot encoded `Category` and `Language`, keeping original columns for reporting.  
 
-**Managerial visualisations**: Language and Category pie charts for distribution, release timeline histogram, average views by category, top predicted films for December, and feature importance. These charts focus on high-level insights for marketing decisions.
+**Modeling**: Used `RandomForestRegressor` with a time-based 80/20 split and `RandomizedSearchCV` for hyperparameter tuning. Evaluated with R², MAE, and RMSE on the test set. Model and feature columns cached for fast reuse.  
+
+**Managerial visualisations**: Language and Category distributions, release timeline histogram, average views by category, top films/languages/categories per year and December focus with predicted top films. These charts guide marketing spend and highlight high-potential films for December 2025.
+
 """
 )
 
