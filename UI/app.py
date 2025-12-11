@@ -463,8 +463,38 @@ st.plotly_chart(fig, use_container_width=True)
 # ----------------------------
 # Display Data Table
 # ----------------------------
+# ----------------------------
+# Display Data Table
+# ----------------------------
+
+    
 with st.expander("View Filtered Data Table"):
-    st.dataframe(top_movies)
+    table_cols = [
+        "Film_Name",
+        "Release_Date",
+        "Viewer_Rate",
+        "Number_of_Views",
+        "Viewing_Month",
+        "Language_original",
+        "Category_original"
+    ]
+
+    table_df = top_movies[table_cols].copy()
+
+    table_df = table_df.rename(columns={
+        'Language_original': 'Language',
+        'Category_original': 'Category'
+    })
+
+    table_df['Release_Date'] = table_df['Release_Date'].dt.date
+    table_df['Viewing_Month'] = table_df['Viewing_Month'].dt.date
+    # reset index
+    table_df = table_df.reset_index(drop=True)
+    # shift index to start from 1
+    table_df.index = table_df.index + 1
+
+    st.dataframe(table_df)
+
 
 
 
