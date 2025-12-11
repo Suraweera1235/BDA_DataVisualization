@@ -372,6 +372,103 @@ st.plotly_chart(fig)
 # fig = px.box(df_model, x="Release_Year", y="Number_of_Views")
 # st.plotly_chart(fig)
 
+
+# ------------------------- Top Movies Dashboard -------------------------
+st.header("Top Movies Dashboard")
+
+# Create a unique movie identifier (Film + Language + Category + Release Year)
+df_model["Unique_Movie"] = (
+    df_model["Film_Name"] + " (" + df_model["Language_original"] + ", " + df_model["Category_original"] + ", " + df_model["Release_Year"].astype(str) + ")"
+)
+
+# ----------------------------
+# Filters on main dashboard
+# ----------------------------
+st.subheader("Filter Movies")
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    category_filter = st.multiselect(
+        "Category",
+        df_model["Category_original"].unique(),
+        placeholder="Select category"
+    )
+
+with col2:
+    language_filter = st.multiselect(
+        "Language",
+        df_model["Language_original"].unique(),
+        placeholder="Select language"
+    )
+
+with col3:
+    month_filter = st.multiselect(
+        "Viewing Month",
+        sorted(df_model["Viewing_Month"].unique()),
+        placeholder="Select month"
+    )
+
+# Top N selector
+top_n = st.slider(
+    "Number of Top Movies",
+    min_value=5,
+    max_value=30,
+    value=10
+)
+
+# ----------------------------
+# Apply Filters
+# ----------------------------
+filtered_df = df_model.copy()
+
+if category_filter:
+    filtered_df = filtered_df[filtered_df["Category_original"].isin(category_filter)]
+
+if language_filter:
+    filtered_df = filtered_df[filtered_df["Language_original"].isin(language_filter)]
+
+if month_filter:
+    filtered_df = filtered_df[filtered_df["Viewing_Month"].isin(month_filter)]
+
+# ----------------------------
+# Get Top N Movies
+# ----------------------------
+top_movies = (
+    filtered_df
+    .sort_values("Number_of_Views", ascending=False)
+    .head(top_n)
+)
+
+# ----------------------------
+# Chart
+# ----------------------------
+st.subheader("Top Movies Based on Filters")
+
+fig = px.bar(
+    top_movies,
+    x='Unique_Movie',
+    y="Number_of_Views",
+    title="Top Movies",
+)
+
+fig.update_layout(
+    xaxis_title="Movie (Unique Combination)",
+    yaxis_title="Views",
+    title_x=0.5
+)
+
+st.plotly_chart(fig, use_container_width=True)
+
+# ----------------------------
+# Display Data Table
+# ----------------------------
+with st.expander("View Filtered Data Table"):
+    st.dataframe(top_movies)
+
+
+
+
 #--------------------Top Movie, Language, and Category of Each Year------------------------
 
 # Initialize empty dataframe for top metrics per year
@@ -449,7 +546,7 @@ fig_grouped = px.bar(
 fig_grouped.update_traces(textposition='outside')
 fig_grouped.update_layout(
     xaxis_title="Year",
-    yaxis_title="Predicted Views",
+    yaxis_title="Number of Views",
     title_x=0.5,
     plot_bgcolor='rgba(0,0,0,0)',
     paper_bgcolor='rgba(0,0,0,0)'
