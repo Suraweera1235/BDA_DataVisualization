@@ -193,7 +193,7 @@ col1, col2 = st.columns([8, 2])
 
 with col1:
     st.markdown(f"<h1 class='heading'>{APP_TITLE}</h1>", unsafe_allow_html=True)
-    st.write("Managerial summary: Use the charts below to guide targeted December 2025 marketing spend.")
+    st.write("Managerial summary: Use the charts below to guide targeted December 2025 marketing expenditure.")
 
 
 # Load and preprocess data
@@ -511,6 +511,13 @@ for year in years:
 
 # Convert to dataframe
 top_metrics_df = pd.DataFrame(top_metrics)
+top_metrics_df['Release_Year'] = top_metrics_df.apply(
+    lambda row: df_model[
+        (df_model['Film_Name'] == row['Value']) &
+        (df_model['Viewing_Year'] == row['Year'])
+    ]['Release_Year'].iloc[0] if row['Metric'] == 'Top Movie' else None,
+    axis=1
+)
 
 # For grouped bar chart, we need numeric y. We'll assign Predicted Views to height
 # Get views for each top metric
@@ -539,7 +546,16 @@ fig_grouped = px.bar(
     color='Metric',
     barmode='group',
     text='Value',
-    hover_data={'Value': True, 'Views': True, 'Metric': True, 'Year': True},
+    
+    hover_data={
+        'Value': True,
+        'Views': True,
+        'Metric': True,
+        'Year': True,
+        'Category': True,      # NEW
+        'Language': True,      # NEW
+        'Release_Year': True   # NEW
+    },
     title='Top Movie, Language, and Category per Year'
 )
 
@@ -669,7 +685,12 @@ else:
         title='Top 10 Predicted Views (December)',
         color='Film_Language',
         color_discrete_sequence=['#0d47a1', '#1565c0', '#1976d2', '#1e88e5', '#2196f3',
-                                 '#42a5f5', '#64b5f6', '#90caf9', '#bbdefb', '#82b1ff']
+                                 '#42a5f5', '#64b5f6', '#90caf9', '#bbdefb', '#82b1ff'],
+        hover_data={
+        "Category": True,
+        "Release_Date": True,
+        "Predicted_Views": True
+    }
     )
 
     y_min = present['Predicted_Views'].min() * 0.95
@@ -767,18 +788,18 @@ else:
 #     st.info("Use managerial plots and this prediction to decide where to allocate marketing budget (top languages/categories, and top predicted films).")
 
 
-    # ------------------------- Appendix / Methods -------------------------
-st.markdown("---")
-st.header("Appendix: Methods & Notes")
-st.markdown(
-"""
+#     # ------------------------- Appendix / Methods -------------------------
+# st.markdown("---")
+# st.header("Appendix: Methods & Notes")
+# st.markdown(
+# """
 
-**Data preprocessing**: Converted `Release_Date` and `Viewing_Month` to datetime, created features `Release_Year`, `Release_Month`, `Viewing_Year`, `Movie_Age`, and `Month_Number`. Filtered out December 2025 onward for training to avoid leakage. One-hot encoded `Category` and `Language`, keeping original columns for reporting.  
+# **Data preprocessing**: Converted `Release_Date` and `Viewing_Month` to datetime, created features `Release_Year`, `Release_Month`, `Viewing_Year`, `Movie_Age`, and `Month_Number`. Filtered out December 2025 onward for training to avoid leakage. One-hot encoded `Category` and `Language`, keeping original columns for reporting.  
 
-**Modeling**: Used `RandomForestRegressor` with a time-based 80/20 split and `RandomizedSearchCV` for hyperparameter tuning. Evaluated with R², MAE, and RMSE on the test set. Model and feature columns cached for fast reuse.  
+# **Modeling**: Used `RandomForestRegressor` with a time-based 80/20 split and `RandomizedSearchCV` for hyperparameter tuning. Evaluated with R², MAE, and RMSE on the test set. Model and feature columns cached for fast reuse.  
 
-**Managerial visualisations**: Language and Category distributions, release timeline histogram, average views by category, top films/languages/categories per year and December focus with predicted top films. These charts guide marketing spend and highlight high-potential films for December 2025.
+# **Managerial visualisations**: Language and Category distributions, release timeline histogram, average views by category, top films/languages/categories per year and December focus with predicted top films. These charts guide marketing spend and highlight high-potential films for December 2025.
 
-"""
-)
+# """
+# )
 
